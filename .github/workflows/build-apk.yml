@@ -29,11 +29,11 @@ jobs:
       - name: Build Debug APK
         run: |
           chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug
+          cd android && ./gradlew assembleDebug -PMYAPP_UPLOAD_STORE_FILE=dummy.keystore -PMYAPP_UPLOAD_KEY_ALIAS=dummy -PMYAPP_UPLOAD_STORE_PASSWORD=dummy -PMYAPP_UPLOAD_KEY_PASSWORD=dummy
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: E-Ujian
+          name: E-Ujian Browser
           path: android/app/build/outputs/apk/debug/app-debug.apk
           
