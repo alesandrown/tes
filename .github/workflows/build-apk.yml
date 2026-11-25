@@ -38,6 +38,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: E-Ujian-Custom-Keyboard
+          name: E-Ujian Browser
           path: android/app/build/outputs/apk/release/app-release.apk
-          
