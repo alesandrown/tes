@@ -1,5 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import {
+  Animated,
+  ImageBackground,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 export function useGlassTokens() {
@@ -9,16 +17,13 @@ export function useGlassTokens() {
   return {
     isDark,
     bgBase: isDark ? '#070B14' : '#EEF4FA',
-    orbPrimary: isDark ? 'rgba(34, 211, 238, 0.25)' : 'rgba(14, 165, 233, 0.22)',
-    orbSecondary: isDark ? 'rgba(99, 102, 241, 0.24)' : 'rgba(56, 189, 248, 0.20)',
-    orbAccent: isDark ? 'rgba(16, 185, 129, 0.16)' : 'rgba(99, 102, 241, 0.16)',
-    glassBg: isDark ? 'rgba(20, 28, 46, 0.60)' : 'rgba(255, 255, 255, 0.72)',
-    glassBgStrong: isDark ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255, 255, 255, 0.88)',
-    glassBorder: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.92)',
-    glassHighlight: isDark ? 'rgba(255, 255, 255, 0.26)' : 'rgba(255, 255, 255, 1)',
-    innerDivider: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.07)',
+    glassBg: isDark ? 'rgba(15, 23, 42, 0.58)' : 'rgba(255, 255, 255, 0.68)',
+    glassBgStrong: isDark ? 'rgba(10, 15, 30, 0.78)' : 'rgba(255, 255, 255, 0.85)',
+    glassBorder: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.90)',
+    glassHighlight: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 1)',
+    innerDivider: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(15, 23, 42, 0.08)',
     textPrimary: isDark ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDark ? '#94A3B8' : '#475569',
+    textSecondary: isDark ? '#CBD5E1' : '#475569',
     accent: isDark ? '#22D3EE' : '#0284C7',
     accentSoft: isDark ? 'rgba(34, 211, 238, 0.18)' : 'rgba(2, 132, 199, 0.14)',
   };
@@ -32,63 +37,27 @@ export function LiquidBackground({
   style?: StyleProp<ViewStyle>;
 }) {
   const g = useGlassTokens();
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 6000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 6000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [floatAnim]);
-
-  const orb1TranslateX = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-15, 25] });
-  const orb1TranslateY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-10, 20] });
-  const orb1Scale = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
-
-  const orb2TranslateX = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [20, -25] });
-  const orb2TranslateY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [15, -20] });
 
   return (
-    <View style={[styles.container, { backgroundColor: g.bgBase }, style]}>
-      <Animated.View
+    <ImageBackground
+      source={require('../assets/bg-wallpaper.jpg')}
+      resizeMode="cover"
+      blurRadius={12}
+      style={[styles.container, { backgroundColor: g.bgBase }, style]}
+    >
+      <View
         style={[
-          styles.orbTopLeft,
+          styles.overlay,
           {
-            backgroundColor: g.orbPrimary,
-            transform: [
-              { translateX: orb1TranslateX },
-              { translateY: orb1TranslateY },
-              { scale: orb1Scale },
-            ],
+            backgroundColor: g.isDark
+              ? 'rgba(7, 11, 20, 0.38)'
+              : 'rgba(238, 244, 250, 0.25)',
           },
         ]}
-      />
-      <Animated.View
-        style={[
-          styles.orbCenterRight,
-          {
-            backgroundColor: g.orbSecondary,
-            transform: [{ translateX: orb2TranslateX }, { translateY: orb2TranslateY }],
-          },
-        ]}
-      />
-      <View style={[styles.orbBottomLeft, { backgroundColor: g.orbAccent }]} />
-      {children}
-    </View>
+      >
+        {children}
+      </View>
+    </ImageBackground>
   );
 }
 
@@ -173,31 +142,9 @@ export function GlassCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    overflow: 'hidden',
   },
-  orbTopLeft: {
-    position: 'absolute',
-    top: -90,
-    left: -70,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-  },
-  orbCenterRight: {
-    position: 'absolute',
-    top: '32%',
-    right: -100,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-  },
-  orbBottomLeft: {
-    position: 'absolute',
-    bottom: -70,
-    left: 20,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+  overlay: {
+    flex: 1,
   },
   glassCard: {
     borderWidth: 1,
