@@ -4,15 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 import { storage } from '../services/storage';
 import DeviceInfo from 'react-native-device-info';
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { Kiosk } from '../services/kiosk';
 import { useMMKVBoolean } from 'react-native-mmkv';
-import { Button, Dialog, Portal, Surface, Text } from 'react-native-paper';
+import { Button, Dialog, Portal, Text } from 'react-native-paper';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
-import Keyboard, { buildInjectedJs, type KeyPressType} from '../components/Keyboard';
+import Keyboard, { buildInjectedJs, type KeyPressType } from '../components/Keyboard';
 
-const EUjianVersion = "3.1.4"
+const EUjianVersion = "3.1.4";
 
 const ACCENT_CYAN = '#22D3EE';
 const BG_PRIMARY = '#0B0F19';
@@ -97,7 +97,6 @@ const BRIDGE_SCRIPT = `
       }
     }
 
-    // Do not run this script two times on the same page.
     if (window.__ejInstalled) return;
     window.__ejInstalled = true;
 
@@ -107,13 +106,15 @@ const BRIDGE_SCRIPT = `
       if (!isEditable(el)) return;
       if (window.__ejMode.inApp) {
         if (el.getAttribute('inputmode') !== 'none') el.setAttribute('inputmode', 'none');
+        if (!el.hasAttribute('readonly')) el.setAttribute('readonly', 'true');
       } else {
         if (el.getAttribute('inputmode') === 'none') el.removeAttribute('inputmode');
+        if (el.hasAttribute('readonly')) el.removeAttribute('readonly');
       }
     }
 
     function applyModeToAll(root) {
-      if (!root) return; // FIX: body is null before the page loads
+      if (!root) return;
       if (isEditable(root)) applyKeyboardMode(root);
       var els = root.querySelectorAll ? root.querySelectorAll('input, textarea, [contenteditable]') : [];
       for (var i = 0; i < els.length; i++) applyKeyboardMode(els[i]);
@@ -175,6 +176,7 @@ const BRIDGE_SCRIPT = `
 
     document.addEventListener('focusin', function (e) {
       if (!isEditable(e.target)) return;
+      applyKeyboardMode(e.target);
       var inputType = e.target.tagName === 'INPUT' ? (e.target.type || 'text') : 'text';
       post({ kind: 'eujian-keyboard', event: 'focus', inputType: inputType });
     }, true);
@@ -184,7 +186,6 @@ const BRIDGE_SCRIPT = `
       post({ kind: 'eujian-keyboard', event: 'blur' });
     }, true);
 
-    // Visibility overrides
     var def = function (p, v) {
       Object.defineProperty(document, p, { get: function () { return v; }, configurable: true });
     };
@@ -202,7 +203,6 @@ const BRIDGE_SCRIPT = `
       if (e.target === window) e.stopImmediatePropagation();
     }, true);
 
-    // Observe documentElement. It always exists.
     new MutationObserver(function (mutations) {
       for (var i = 0; i < mutations.length; i++) {
         var added = mutations[i].addedNodes;
@@ -212,9 +212,9 @@ const BRIDGE_SCRIPT = `
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
 
-    // FIX: do the body work only when the DOM is ready.
     function onReady() {
       applyModeToAll(document.body);
+    }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', onReady);
     } else {
@@ -232,16 +232,16 @@ true;
 export default function BrowserScreen() {
   const isNumeric = (s: string) => /^\d+$/.test(s);
 
-  const webviewRef = useRef(null);
+  const webviewRef = useRef<any>(null);
 
-  const [progress, setProgress] = useState(0); // 0..1, like onProgressChanged
+  const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [batteryLevel, setBatteryLevel] = useState(-1); // 0..1
+  const [batteryLevel, setBatteryLevel] = useState(-1);
   const [clock, setClock] = useState(formatClock(new Date()));
   const [forceOldLogin] = useMMKVBoolean("force_old_login");
   const [warningExitDialog, setWarningExitDialog] = useState(false);
   const [lastWarningExitDialog, setLastWarningExitDialog] = useState(false);
-  
+
   const [hidden, setHidden] = useState(false);
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -276,16 +276,6 @@ export default function BrowserScreen() {
     return () => clearInterval(id);
   }, []);
 
-  // useEffect(() => {
-  //   if (!DeviceInfo) return;
-  //   let sub;
-  //   DeviceInfo.getBatteryLevel().then(setBatteryLevel);
-  //   if (DeviceInfo.addBatteryLevelListener) {
-  //     sub = DeviceInfo.addBatteryLevelListener(setBatteryLevel);
-  //   }
-  //   return () => sub && sub.remove && sub.remove();
-  // }, []);
-
   useEffect(() => {
     const updateBattery = async () => {
       const level = await DeviceInfo.getBatteryLevel();
@@ -293,9 +283,7 @@ export default function BrowserScreen() {
     };
 
     updateBattery();
-
-    const interval = setInterval(updateBattery, 30000); // every 30s
-
+    const interval = setInterval(updateBattery, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -303,19 +291,21 @@ export default function BrowserScreen() {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
+        if (keyboardVisible) {
+          setKeyboardVisible(false);
+          return true;
+        }
         if (hidden) {
           return true;
         }
 
         setWarningExitDialog(true);
-
         return true;
       }
     );
-    
-    return () => backHandler.remove();
-  }, [hidden]);
 
+    return () => backHandler.remove();
+  }, [hidden, keyboardVisible]);
 
   const tenantCode = storage.getString('tenant_code');
   const navigation = useNavigation();
@@ -327,23 +317,21 @@ export default function BrowserScreen() {
           something went wrong.
         </Text>
       </SafeAreaView>
-    )
+    );
   }
 
   const uri = forceOldLogin
-  ? `https://e-ujian.com/${tenantCode}/gologin`
-  : isNumeric(tenantCode) 
-    ? `https://e-ujian.com/${tenantCode}/gologin` 
-    : `https://app.e-ujian.com/${tenantCode}/login`;
+    ? `https://e-ujian.com/${tenantCode}/gologin`
+    : isNumeric(tenantCode)
+      ? `https://e-ujian.com/${tenantCode}/gologin`
+      : `https://app.e-ujian.com/${tenantCode}/login`;
 
   const ua = DeviceInfo.getUserAgentSync();
- 
+
   const batteryText =
     batteryLevel === -1 ? '🔋 --%' : `🔋 ${Math.round(batteryLevel * 100)}%`;
 
-
   const handleNavChange = async (navState: WebViewNavigation) => {
-    console.log(navState);
     if (navState.url.includes('seb-quit-confirmed')) {
       navigation.goBack();
 
@@ -355,15 +343,15 @@ export default function BrowserScreen() {
     }
   };
 
-  const handleMessage = useCallback((event) => {
+  const handleMessage = useCallback((event: any) => {
     let msg;
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch (e) {
-      return; // not our message, or malformed — ignore
+      return;
     }
     if (msg.kind !== 'eujian-keyboard') return;
- 
+
     if (msg.event === 'focus') {
       setInputType(msg.inputType === 'number' ? 'number' : 'text');
       setKeyboardVisible(true);
@@ -378,7 +366,6 @@ export default function BrowserScreen() {
 
   const handleLoadStart = useCallback(() => {
     setIsLoading(true);
-    // webviewRef.current?.injectJavaScript(BRIDGE_SCRIPT);
   }, []);
 
   const handleLoadEnd = useCallback(() => {
@@ -386,20 +373,18 @@ export default function BrowserScreen() {
     webviewRef.current?.injectJavaScript(`__ejSetMode(${useKnockoffKeyboard}); true;`);
   }, [useKnockoffKeyboard]);
 
-  const handleKeyPress = useCallback(({ output, type }: { output: string, type: KeyPressType}) => {
+  const handleKeyPress = useCallback(({ output, type }: { output: string; type: KeyPressType }) => {
     let js;
     if (type === 'ok') {
       js = `__ej.ok(); true;`;
     } else {
-      // covers 'char', 'space', 'backspace' — buildInjectedJs already
-      // special-cases backspace internally
       js = buildInjectedJs(output, type);
     }
     webviewRef.current?.injectJavaScript(js);
   }, []);
 
   return (
-    <SafeAreaView style={[styles.root ,{ flex: 1 }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.root, { flex: 1 }]} edges={['top', 'bottom']}>
       <View style={styles.progressContainer}>
         {isLoading && <View style={styles.progressGlow} />}
         {isLoading && (
@@ -414,11 +399,9 @@ export default function BrowserScreen() {
         )}
       </View>
 
-
       <WebView
         ref={webviewRef}
-        source={{ uri: uri}}
-        // source={{ uri: "https://acme.com/webapis/visibility.html"}} // DEBUGING ONLY
+        source={{ uri: uri }}
         style={styles.webview}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
@@ -426,17 +409,16 @@ export default function BrowserScreen() {
         userAgent={ua + ` EujianBrowser/${EUjianVersion}`}
         onNavigationStateChange={handleNavChange}
         injectedJavaScriptBeforeContentLoaded={BRIDGE_SCRIPT}
-        // injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
         onMessage={handleMessage}
       />
 
       <View style={styles.statusBar}>
-        <TouchableOpacity onPress={handleLock} style={{ paddingVertical:4,}}>
+        <TouchableOpacity onPress={handleLock} style={{ paddingVertical: 4 }}>
           <Text style={styles.batteryText} numberOfLines={1}>
             {batteryText}
           </Text>
         </TouchableOpacity>
- 
+
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
             <Svg width={24} height={24} viewBox="0 0 24 24">
@@ -446,11 +428,10 @@ export default function BrowserScreen() {
               />
             </Svg>
           </TouchableOpacity>
-  
 
-        <TouchableOpacity onPress={() => setUseKnockoffKeyboard(prev => !prev)}>
-          <Text style={styles.clockText}>{clock}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => setUseKnockoffKeyboard(prev => !prev)}>
+            <Text style={styles.clockText}>{clock}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -510,4 +491,4 @@ export default function BrowserScreen() {
       </Portal>
     </SafeAreaView>
   );
-}
+    }
