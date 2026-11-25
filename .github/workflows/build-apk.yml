@@ -26,14 +26,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Debug APK
+      - name: Generate Release Keystore
+        run: |
+          keytool -genkeypair -v -keystore android/app/temp-release.keystore -alias temp-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass android123 -keypass android123 -dname "CN=App, OU=Dev, O=App, L=City, ST=State, C=ID"
+
+      - name: Build Release APK
         run: |
           chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug -PMYAPP_UPLOAD_STORE_FILE=dummy.keystore -PMYAPP_UPLOAD_KEY_ALIAS=dummy -PMYAPP_UPLOAD_STORE_PASSWORD=dummy -PMYAPP_UPLOAD_KEY_PASSWORD=dummy
+          cd android && ./gradlew assembleRelease -PMYAPP_UPLOAD_STORE_FILE=temp-release.keystore -PMYAPP_UPLOAD_KEY_ALIAS=temp-alias -PMYAPP_UPLOAD_STORE_PASSWORD=android123 -PMYAPP_UPLOAD_KEY_PASSWORD=android123
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: E-Ujian Browser
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: E-Ujian-Custom-Keyboard
+          path: android/app/build/outputs/apk/release/app-release.apk
           
