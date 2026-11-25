@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from '../screens/HomeScreen';
@@ -15,16 +15,69 @@ const TABS = [
 
 export default function TabNavigation() {
   const [index, setIndex] = useState(0);
+  const [dockWidth, setDockWidth] = useState(0);
   const insets = useSafeAreaInsets();
   const g = useGlassTokens();
 
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const stretchAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const pillWidth = dockWidth > 0 ? (dockWidth - 12) / TABS.length : 0;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: index,
+        useNativeDriver: true,
+        stiffness: 220,
+        damping: 20,
+        mass: 0.85,
+      }),
+      Animated.sequence([
+        Animated.timing(stretchAnim, {
+          toValue: 1.12,
+          duration: 130,
+          useNativeDriver: true,
+        }),
+        Animated.spring(stretchAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          stiffness: 260,
+          damping: 16,
+        }),
+      ]),
+    ]).start();
+  }, [index, slideAnim, stretchAnim]);
+
+  const handleSelectTab = (nextIndex: number) => {
+    if (nextIndex === index) return;
+    fadeAnim.setValue(0.88);
+    setIndex(nextIndex);
+    Animated.spring(fadeAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      stiffness: 240,
+      damping: 22,
+    }).start();
+  };
+
+  const onDockLayout = (e: LayoutChangeEvent) => {
+    setDockWidth(e.nativeEvent.layout.width);
+  };
+
+  const translateX = slideAnim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0, pillWidth, pillWidth * 2],
+  });
+
   return (
     <View style={{ flex: 1, backgroundColor: g.bgBase }}>
-      <View style={{ flex: 1 }}>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         {index === 0 && <HomeScreen />}
         {index === 1 && <SettingsScreen />}
         {index === 2 && <AboutScreen />}
-      </View>
+      </Animated.View>
 
       <View
         pointerEvents="box-none"
@@ -34,6 +87,7 @@ export default function TabNavigation() {
         ]}
       >
         <View
+          onLayout={onDockLayout}
           style={[
             styles.glassDock,
             {
@@ -43,20 +97,28 @@ export default function TabNavigation() {
             },
           ]}
         >
+          {pillWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.liquidPill,
+                {
+                  width: pillWidth,
+                  backgroundColor: g.accentSoft,
+                  borderColor: g.glassHighlight,
+                  transform: [{ translateX }, { scaleX: stretchAnim }],
+                },
+              ]}
+            />
+          )}
+
           {TABS.map((tab, i) => {
             const focused = index === i;
             return (
               <Pressable
                 key={tab.key}
-                onPress={() => setIndex(i)}
-                style={[
-                  styles.tabItem,
-                  focused && {
-                    backgroundColor: g.accentSoft,
-                    borderColor: g.glassHighlight,
-                    borderWidth: 1,
-                  },
-                ]}
+                onPress={() => handleSelectTab(i)}
+                style={styles.tabItem}
               >
                 <Icon
                   source={focused ? tab.focusedIcon : tab.unfocusedIcon}
@@ -97,12 +159,19 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 32,
     borderWidth: 1,
-    gap: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.24,
     shadowRadius: 24,
     elevation: 10,
+  },
+  liquidPill: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    left: 6,
+    borderRadius: 26,
+    borderWidth: 1,
   },
   tabItem: {
     flex: 1,
