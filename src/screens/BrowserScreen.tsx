@@ -215,8 +215,6 @@ const BRIDGE_SCRIPT = `
     // FIX: do the body work only when the DOM is ready.
     function onReady() {
       applyModeToAll(document.body);
-      document.documentElement.style.outline = '4px solid red'; // TEST MARK: remove later
-    }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', onReady);
     } else {
@@ -249,7 +247,7 @@ export default function BrowserScreen() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [inputType, setInputType] = useState<"text" | "number">('text');
 
-  const [useKnockoffKeyboard, setUseKnockoffKeyboard] = useState(false);
+  const [useKnockoffKeyboard, setUseKnockoffKeyboard] = useState(true);
 
   useEffect(() => {
     if (hidden) {
