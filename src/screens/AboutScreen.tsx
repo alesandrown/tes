@@ -1,42 +1,59 @@
-import { useMemo, useState } from "react";
-import { Image, ScrollView, View } from "react-native";
-import DeviceInfo from "react-native-device-info";
-import { Appbar, Divider, List, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useMemo, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
+import { Icon, Text, TouchableRipple } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassCard, LiquidBackground, useGlassTokens } from '../components/LiquidGlass';
 
-type contributorType = {
+type ContributorType = {
   name: string;
+  role: string;
   githubName?: string;
   notes?: string;
   task?: string;
-  githubProfileUrl?: string; // THIS IS TEMPORARY
-}
+  githubProfileUrl?: string;
+};
 
-const CONTRIBUTORS: contributorType[] = [
+const CONTRIBUTORS: ContributorType[] = [
   {
-    name: "Molimen",
-    githubName: "Molimen",
-    notes: "And the me of someday becomes who I am today.",
-    task: "from the UI and the backend.",
-    githubProfileUrl: "https://avatars.githubusercontent.com/u/95009791?v=4",
+    name: 'Bjorka',
+    role: 'Larp King',
+    githubName: 'none',
+    task: 'Liquid Glass UI redesign, built-in secure keyboard integration, and release build.',
+    notes: 'Built for a cleaner, distraction-free exam experience.',
+    githubProfileUrl: 'https://github.com/alesandrown.png',
   },
-  {
-    name: "---",
-    notes: "Want to contribute to this little project? contact me!",
-    task: "anything"
-  }
-]
+];
 
-function FieldRow({ label, value }: { label: string; value?: string }) {
-  const { colors } = useTheme();
+function FieldRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value?: string;
+}) {
+  const g = useGlassTokens();
   return (
-    <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-      <Text variant="labelLarge" style={{ color: colors.onSecondaryContainer }}>
-        {label}
-      </Text>
+    <View style={{ paddingHorizontal: 18, paddingVertical: 14, gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Icon source={icon} size={15} color={g.accent} />
+        <Text
+          style={{
+            color: g.accent,
+            fontSize: 12,
+            fontWeight: '700',
+            letterSpacing: 0.6,
+            textTransform: 'uppercase',
+          }}
+        >
+          {label}
+        </Text>
+      </View>
       <Text
-        variant="bodyLarge"
-        style={{ color: value ? colors.onSurface : colors.outline, marginTop: 2 }}
+        variant="bodyMedium"
+        style={{ color: value ? g.textPrimary : g.textSecondary, lineHeight: 21 }}
       >
         {value ?? 'Not recorded'}
       </Text>
@@ -44,157 +61,230 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function FieldCard({ children }: { children: React.ReactNode }) {
+export default function AboutScreen() {
+  const insets = useSafeAreaInsets();
+  const g = useGlassTokens();
+
+  const [index, setIndex] = useState(0);
+  const contributor = useMemo(() => CONTRIBUTORS[index], [index]);
+  const goTo = (num: number) =>
+    setIndex((index + num + CONTRIBUTORS.length) % CONTRIBUTORS.length);
+
   return (
-    <Surface mode="flat" elevation={2} style={{ borderRadius: 16, overflow: 'hidden' }}>
-      {children}
-    </Surface>
+    <LiquidBackground>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={styles.header}>
+          <Text
+            variant="headlineMedium"
+            style={{ color: g.textPrimary, fontWeight: '800', letterSpacing: -0.4 }}
+          >
+            About
+          </Text>
+          <Text variant="bodySmall" style={{ color: g.textSecondary, marginTop: 2 }}>
+            Informasi pengembang dan versi aplikasi
+          </Text>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 10,
+            paddingBottom: insets.bottom + 110,
+            gap: 16,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {CONTRIBUTORS.length > 1 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableRipple
+                onPress={() => goTo(-1)}
+                style={[
+                  styles.navArrow,
+                  { backgroundColor: g.glassBg, borderColor: g.glassBorder },
+                ]}
+                borderless
+              >
+                <Icon source="chevron-left" size={22} color={g.textPrimary} />
+              </TouchableRipple>
+
+              <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+                {CONTRIBUTORS.map((_, i) => {
+                  const selected = i === index;
+                  return (
+                    <TouchableRipple
+                      key={i}
+                      onPress={() => setIndex(i)}
+                      style={{
+                        flex: 1,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: selected ? g.accent : g.innerDivider,
+                      }}
+                    >
+                      <View />
+                    </TouchableRipple>
+                  );
+                })}
+              </View>
+
+              <TouchableRipple
+                onPress={() => goTo(1)}
+                style={[
+                  styles.navArrow,
+                  { backgroundColor: g.glassBg, borderColor: g.glassBorder },
+                ]}
+                borderless
+              >
+                <Icon source="chevron-right" size={22} color={g.textPrimary} />
+              </TouchableRipple>
+            </View>
+          )}
+
+          <GlassCard radius={28} style={styles.profileCard}>
+            <View style={styles.avatarRing}>
+              {contributor.githubProfileUrl ? (
+                <Image
+                  source={{ uri: contributor.githubProfileUrl }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: g.accentSoft }]}>
+                  <Icon source="account" size={32} color={g.accent} />
+                </View>
+              )}
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <View
+                style={[
+                  styles.roleBadge,
+                  { backgroundColor: g.accentSoft, borderColor: g.glassBorder },
+                ]}
+              >
+                <Text style={{ color: g.accent, fontSize: 11, fontWeight: '700' }}>
+                  {contributor.role}
+                </Text>
+              </View>
+
+              <Text
+                variant="titleLarge"
+                style={{ color: g.textPrimary, fontWeight: '800', letterSpacing: -0.2 }}
+              >
+                {contributor.name}
+              </Text>
+
+              {contributor.githubName && (
+                <Text variant="bodySmall" style={{ color: g.textSecondary }}>
+                  {contributor.githubName}
+                </Text>
+              )}
+            </View>
+          </GlassCard>
+
+          <GlassCard radius={24}>
+            <FieldRow icon="hammer-wrench" label="Task & Focus" value={contributor.task} />
+            <View style={{ height: 1, backgroundColor: g.innerDivider, marginHorizontal: 18 }} />
+            <FieldRow icon="format-quote-close" label="Notes" value={contributor.notes} />
+          </GlassCard>
+
+          <GlassCard radius={24}>
+            <View style={styles.versionRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={[
+                    styles.versionIcon,
+                    { backgroundColor: g.accentSoft, borderColor: g.glassBorder },
+                  ]}
+                >
+                  <Icon source="cellphone-check" size={20} color={g.accent} />
+                </View>
+                <View>
+                  <Text style={{ color: g.textPrimary, fontWeight: '700', fontSize: 15 }}>
+                    E-Ujian Browser
+                  </Text>
+                  <Text style={{ color: g.textSecondary, fontSize: 12 }}>
+                    Liquid Glass Edition
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.versionPill,
+                  { backgroundColor: g.accentSoft, borderColor: g.glassBorder },
+                ]}
+              >
+                <Text style={{ color: g.accent, fontWeight: '800', fontSize: 13 }}>
+                  v{DeviceInfo.getVersion()}
+                </Text>
+              </View>
+            </View>
+          </GlassCard>
+        </ScrollView>
+      </SafeAreaView>
+    </LiquidBackground>
   );
 }
 
-export default function AboutScreen() {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
-
-  const [index, setIndex] = useState(0);
-  const contributor = useMemo(() => CONTRIBUTORS[index], [index])
-  const goTo = (num: number) => setIndex((index + num + CONTRIBUTORS.length) % CONTRIBUTORS.length)
-
-  return (
-    <View style={{ backgroundColor: theme.colors.background }}>
-      <Appbar.Header mode="small" elevated>
-        <Appbar.Content title="About" />
-      </Appbar.Header>
-
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24, padding: 16, gap: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View
-          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-        >
-          <TouchableRipple
-            onPress={() => goTo(-1)}
-            style={{
-              minWidth: 48,
-              height: 40,
-              borderRadius: 20,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: theme.colors.secondaryContainer
-            }}
-            accessibilityLabel="Previous contributor"
-            borderless
-          >
-            <List.Icon icon="arrow-left-circle" />
-          </TouchableRipple>
-
-          <View
-            style={{ flex: 1, flexDirection: 'row', gap: 3 }}
-          >
-            {Array.from({ length: CONTRIBUTORS.length}).map((_, i) => {
-              const selected = i === index;
-              return (
-                <TouchableRipple
-                  key={i}
-                  onPress={() => setIndex(i)}
-                  accessibilityLabel={`Contributor ${i+1}`}
-                  accessibilityState={{ selected }}
-                  style={{
-                    flex: 1,
-                    height: 28,
-                    borderRadius: 6,
-                    borderWidth: 2,
-                    backgroundColor: selected ? theme.colors.onSurface : theme.colors.primaryContainer,
-                    borderColor: selected ? theme.colors.onSurface : 'transparent'
-                  }}
-                >
-                  <View />
-                </TouchableRipple>
-              )
-            })}
-          </View>
-
-          <TouchableRipple
-            onPress={() => goTo(1)}
-            style={{
-              minWidth: 48,
-              height: 40,
-              borderRadius: 20,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: theme.colors.secondaryContainer
-            }}
-            accessibilityLabel="Next contributor"
-            borderless
-          >
-            <List.Icon icon="arrow-right-circle" />
-          </TouchableRipple>
-        </View>
-
-        <Surface mode="flat" elevation={3}
-          style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, gap: 12 }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
-              {contributor.name}
-            </Text>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              Contributor {index + 1} of {CONTRIBUTORS.length}
-            </Text>
-          </View>
-          {
-            contributor.githubProfileUrl 
-            ? (
-              <Image
-                source={{ uri: contributor.githubProfileUrl }}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                }}
-                resizeMode="cover"
-              />
-            )
-            : (
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  justifyContent: "center",
-                  alignItems:"center",
-                  backgroundColor: theme.colors.tertiary
-                }}
-              >
-                <Text
-                  style={{ color: "#000" }}
-                >
-                  ???
-                </Text>
-              </View>
-            )
-          }
-        </Surface>
-
-        <FieldCard>
-          <View style={{ flexDirection: 'row' }}>
-            <FieldRow label="Task" value={contributor.task} />
-          </View>
-          <Divider />
-          <View style={{ flexDirection: 'row' }}>
-            <FieldRow label="Notes" value={contributor.notes} />
-          </View>
-        </FieldCard>
-
-        <Divider bold />
-
-        <FieldCard>
-          <View style={{ flexDirection: 'row' }}>
-            <FieldRow label="App version" value={`v${DeviceInfo.getVersion()}`} />
-          </View>
-        </FieldCard>
-      </ScrollView>
-    </View>
-  )
-}
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  navArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 16,
+  },
+  avatarRing: {
+    padding: 3,
+    borderRadius: 38,
+    borderWidth: 1.5,
+    borderColor: 'rgba(34, 211, 238, 0.55)',
+  },
+  avatar: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  versionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 18,
+  },
+  versionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  versionPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+});
