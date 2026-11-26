@@ -12,49 +12,51 @@ import {
   TextInput,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MMKV } from 'react-native-mmkv';
+import { storage } from '../services/storage';
 import { GlassCard, LiquidBackground, useGlassTokens } from '../components/LiquidGlass';
-
-const storage = new MMKV();
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const g = useGlassTokens();
 
   const [systemTheme, setSystemTheme] = useState<boolean>(
-    storage.getBoolean('useSystemTheme') ?? true
+    storage.getBoolean('use_system_theme') ?? true
   );
   const [darkMode, setDarkMode] = useState<boolean>(
-    storage.getBoolean('isDarkMode') ?? false
+    storage.getBoolean('is_dark_mode') ?? false
   );
   const [oldLogin, setOldLogin] = useState<boolean>(
-    storage.getBoolean('useOldLogin') ?? false
+    storage.getBoolean('force_old_login') ?? false
   );
   const [tenantCode, setTenantCode] = useState<string>(
-    storage.getString('tenantCode') ?? ''
+    storage.getString('tenant_code') ?? ''
   );
   const [tenantDialogVisible, setTenantDialogVisible] = useState(false);
   const [tempTenantCode, setTempTenantCode] = useState(tenantCode);
 
   const toggleSystemTheme = (val: boolean) => {
     setSystemTheme(val);
-    storage.set('useSystemTheme', val);
+    storage.set('use_system_theme', val);
   };
 
   const toggleDarkMode = (val: boolean) => {
     setDarkMode(val);
-    storage.set('isDarkMode', val);
+    storage.set('is_dark_mode', val);
   };
 
   const toggleOldLogin = (val: boolean) => {
     setOldLogin(val);
-    storage.set('useOldLogin', val);
+    storage.set('force_old_login', val);
   };
 
   const saveTenantCode = () => {
     const cleaned = tempTenantCode.trim();
     setTenantCode(cleaned);
-    storage.set('tenantCode', cleaned);
+    if (cleaned.length > 0) {
+      storage.set('tenant_code', cleaned);
+    } else {
+      storage.delete('tenant_code');
+    }
     setTenantDialogVisible(false);
   };
 
@@ -70,7 +72,6 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header transparan dengan badge kecil agar logo ITB di background tetap terlihat */}
         <GlassCard radius={20} style={styles.headerCard}>
           <View style={styles.headerRow}>
             <View style={[styles.headerBadge, { backgroundColor: g.accentSoft }]}>
@@ -87,10 +88,8 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        {/* Ruang pandang tengah agar logo ITB di wallpaper terlihat utuh */}
         <View style={styles.logoShowcaseSpacer} />
 
-        {/* Grup 1: General */}
         <GlassCard radius={24} style={styles.sectionCard}>
           <Text style={[styles.sectionLabel, { color: g.accent }]}>
             GENERAL
@@ -139,7 +138,6 @@ export default function SettingsScreen() {
           />
         </GlassCard>
 
-        {/* Grup 2: Ujian Settings */}
         <GlassCard radius={24} style={styles.sectionCard}>
           <Text style={[styles.sectionLabel, { color: g.accent }]}>
             UJIAN SETTINGS
@@ -179,7 +177,6 @@ export default function SettingsScreen() {
           />
         </GlassCard>
 
-        {/* Grup 3: Application */}
         <GlassCard radius={24} style={styles.sectionCard}>
           <Text style={[styles.sectionLabel, { color: g.accent }]}>
             APPLICATION
