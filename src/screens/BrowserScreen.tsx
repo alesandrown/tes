@@ -85,10 +85,29 @@ function formatClock(date: Date) {
 const BRIDGE_SCRIPT = `
 (function () {
   try {
+    var NON_TEXT_TYPES = {
+      radio: true,
+      checkbox: true,
+      button: true,
+      submit: true,
+      reset: true,
+      file: true,
+      image: true,
+      range: true,
+      color: true,
+      hidden: true
+    };
+
     function isEditable(el) {
       if (!el) return false;
+      if (el.isContentEditable) return true;
       var tag = el.tagName;
-      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+      if (tag === 'TEXTAREA') return true;
+      if (tag === 'INPUT') {
+        var type = (el.type || el.getAttribute('type') || 'text').toLowerCase();
+        return !NON_TEXT_TYPES[type];
+      }
+      return false;
     }
 
     function post(payload) {
@@ -167,18 +186,59 @@ const BRIDGE_SCRIPT = `
 
       ok: function () {
         var el = document.activeElement;
-        if (isEditable(el)) {
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          el.blur();
+        if (!isEditable(el)) return;
+
+        if (el.isContentEditable) {
+          document.execCommand('insertLineBreak');
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          return;
         }
+
+        var start = el.selectionStart == null ? el.value.length : el.selectionStart;
+        var end = el.selectionEnd == null ? el.value.length : el.selectionEnd;
+        var value = el.value || '';
+
+        el.value = value.slice(0, start) + '\\n' + value.slice(end);
+        el.selectionStart = el.selectionEnd = start + 1;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
       },
     };
 
     document.addEventListener('focusin', function (e) {
-      if (!isEditable(e.target)) return;
+      if (!isEditable(e.target)) {
+        post({ kind: 'eujian-keyboard', event: 'blur' });
+        return;
+      }
       applyKeyboardMode(e.target);
       var inputType = e.target.tagName === 'INPUT' ? (e.target.type || 'text') : 'text';
       post({ kind: 'eujian-keyboard', event: 'focus', inputType: inputType });
+    }, true);
+
+    document.addEventListener('click', function (e) {
+      var target = e.target;
+      if (!target) return;
+      var radioOrOption = target.closest
+        ? target.closest('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], label')
+        : null;
+
+      if (radioOrOption) {
+        var linkedInput = null;
+        if (radioOrOption.tagName === 'LABEL') {
+          linkedInput = radioOrOption.htmlFor
+            ? document.getElementById(radioOrOption.htmlFor)
+            : radioOrOption.querySelector('input, textarea');
+        } else {
+          linkedInput = radioOrOption;
+        }
+
+        if (!linkedInput || !isEditable(linkedInput)) {
+          if (document.activeElement && isEditable(document.activeElement)) {
+            document.activeElement.blur();
+          }
+          post({ kind: 'eujian-keyboard', event: 'blur' });
+        }
+      }
     }, true);
 
     document.addEventListener('focusout', function (e) {
@@ -475,20 +535,4 @@ export default function BrowserScreen() {
           <Dialog.Actions>
             <View
               style={{ flex: 1, flexDirection: "row", justifyContent: "space-between" }}
-            >
-              <Button
-                onPress={() => {
-                  navigation.goBack();
-                  setLastWarningExitDialog(false);
-                }}
-              >
-                Exit
-              </Button>
-              <Button mode='contained' onPress={() => setLastWarningExitDialog(false)}>Cancel</Button>
-            </View>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </SafeAreaView>
-  );
-    }
+            
