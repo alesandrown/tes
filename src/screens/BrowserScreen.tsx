@@ -535,4 +535,20 @@ export default function BrowserScreen() {
           <Dialog.Actions>
             <View
               style={{ flex: 1, flexDirection: "row", justifyContent: "space-between" }}
-            
+            >
+              <Button
+                onPress={() => {
+                  navigation.goBack();
+                  setLastWarningExitDialog(false);
+                }}
+              >
+                Exit
+              </Button>
+              <Button mode='contained' onPress={() => setLastWarningExitDialog(false)}>Cancel</Button>
+            </View>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </SafeAreaView>
+  );
+}
