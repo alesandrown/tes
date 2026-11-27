@@ -123,12 +123,14 @@ const BRIDGE_SCRIPT = `
 
     function applyKeyboardMode(el) {
       if (!isEditable(el)) return;
+      if (el.hasAttribute('readonly') && el.getAttribute('data-ej-ro') === '1') {
+        el.removeAttribute('readonly');
+        el.removeAttribute('data-ej-ro');
+      }
       if (window.__ejMode.inApp) {
         if (el.getAttribute('inputmode') !== 'none') el.setAttribute('inputmode', 'none');
-        if (!el.hasAttribute('readonly')) el.setAttribute('readonly', 'true');
       } else {
         if (el.getAttribute('inputmode') === 'none') el.removeAttribute('inputmode');
-        if (el.hasAttribute('readonly')) el.removeAttribute('readonly');
       }
     }
 
@@ -149,8 +151,193 @@ const BRIDGE_SCRIPT = `
       }
     };
 
+    // Menu mengambang Cut / Copy / Paste / Select All saat tekan lama (long-press)
+    var menuEl = null;
+    function hideContextMenu() {
+      if (menuEl && menuEl.parentNode) {
+        menuEl.parentNode.removeChild(menuEl);
+      }
+      menuEl = null;
+    }
+
+    function showContextMenu(target, x, y) {
+      hideContextMenu();
+      var editable = isEditable(target);
+      var selectedText = window.getSelection ? window.getSelection().toString() : '';
+      if (!selectedText && editable && typeof target.selectionStart === 'number') {
+        selectedText = (target.value || '').slice(target.selectionStart, target.selectionEnd);
+      }
+
+      if (!editable && !selectedText) return;
+
+      var bar = document.createElement('div');
+      bar.setAttribute('data-ej-menu', '1');
+      bar.style.cssText = [
+        'position:fixed',
+        'z-index:2147483647',
+        'display:flex',
+        'align-items:center',
+        'gap:2px',
+        'background:#1E293B',
+        'color:#F8FAFC',
+        'border:1px solid rgba(56,189,248,0.45)',
+        'border-radius:12px',
+        'padding:4px 6px',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.45)',
+        'font-family:sans-serif',
+        'font-size:13px',
+        'font-weight:600',
+        'user-select:none'
+      ].join(';');
+
+      function makeBtn(label, onClick) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        btn.style.cssText = [
+          'background:transparent',
+          'border:none',
+          'color:#F8FAFC',
+          'padding:6px 10px',
+          'border-radius:8px',
+          'font-size:13px',
+          'font-weight:600',
+          'cursor:pointer'
+        ].join(';');
+        btn.onmousedown = function (ev) { ev.preventDefault(); };
+        btn.ontouchstart = function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          onClick();
+        };
+        btn.onclick = function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          onClick();
+        };
+        return btn;
+      }
+
+      if (editable) {
+        bar.appendChild(makeBtn('Paste', function () {
+          target.focus();
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            navigator.clipboard.readText().then(function (clipText) {
+              if (clipText) window.__ej.i(clipText);
+              hideContextMenu();
+            }).catch(function () {
+              document.execCommand('paste');
+              hideContextMenu();
+            });
+          } else {
+            document.execCommand('paste');
+            hideContextMenu();
+          }
+        }));
+      }
+
+      if (selectedText) {
+        bar.appendChild(makeBtn('Copy', function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(selectedText).catch(function () {
+              document.execCommand('copy');
+            });
+          } else {
+            document.execCommand('copy');
+          }
+          hideContextMenu();
+        }));
+
+        if (editable) {
+          bar.appendChild(makeBtn('Cut', function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(selectedText).catch(function () {});
+            }
+            window.__ej.i('\\b');
+            hideContextMenu();
+          }));
+        }
+      }
+
+      if (editable) {
+        bar.appendChild(makeBtn('Select All', function () {
+          target.focus();
+          if (target.isContentEditable) {
+            document.execCommand('selectAll');
+          } else if (typeof target.select === 'function') {
+            target.select();
+          }
+          showContextMenu(target, x, y);
+        }));
+      }
+
+      document.body.appendChild(bar);
+      var rect = bar.getBoundingClientRect();
+      var left = Math.max(10, Math.min(window.innerWidth - rect.width - 10, x - rect.width / 2));
+      var top = Math.max(10, y - rect.height - 18);
+      bar.style.left = left + 'px';
+      bar.style.top = top + 'px';
+      menuEl = bar;
+    }
+
+    // Deteksi tekan lama (long-press ~450ms)
+    var pressTimer = null;
+    var startX = 0;
+    var startY = 0;
+
+    function clearPressTimer() {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    }
+
+    document.addEventListener('touchstart', function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-ej-menu="1"]')) return;
+
+      hideContextMenu();
+      clearPressTimer();
+
+      var touch = e.touches && e.touches[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      var target = e.target;
+
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        showContextMenu(target, startX, startY);
+      }, 450);
+    }, true);
+
+    document.addEventListener('touchmove', function (e) {
+      if (!pressTimer) return;
+      var touch = e.touches && e.touches[0];
+      if (!touch) return;
+      if (Math.abs(touch.clientX - startX) > 15 || Math.abs(touch.clientY - startY) > 15) {
+        clearPressTimer();
+      }
+    }, true);
+
+    document.addEventListener('touchend', function () {
+      clearPressTimer();
+    }, true);
+
+    document.addEventListener('touchcancel', function () {
+      clearPressTimer();
+    }, true);
+
+    document.addEventListener('contextmenu', function (e) {
+      var target = e.target;
+      if (isEditable(target) || (window.getSelection && window.getSelection().toString())) {
+        e.preventDefault();
+        showContextMenu(target, e.clientX || startX || 120, e.clientY || startY || 200);
+      }
+    }, true);
+
     window.__ej = {
       i: function (ch) {
+        hideContextMenu();
         var el = document.activeElement;
         if (!isEditable(el)) return;
 
@@ -185,6 +372,7 @@ const BRIDGE_SCRIPT = `
       },
 
       ok: function () {
+        hideContextMenu();
         var el = document.activeElement;
         if (!isEditable(el)) return;
 
@@ -218,6 +406,8 @@ const BRIDGE_SCRIPT = `
     document.addEventListener('click', function (e) {
       var target = e.target;
       if (!target) return;
+      if (target.closest && target.closest('[data-ej-menu="1"]')) return;
+
       var radioOrOption = target.closest
         ? target.closest('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], label')
         : null;
@@ -470,85 +660,4 @@ export default function BrowserScreen() {
         onNavigationStateChange={handleNavChange}
         injectedJavaScriptBeforeContentLoaded={BRIDGE_SCRIPT}
         onMessage={handleMessage}
-      />
-
-      <View style={styles.statusBar}>
-        <TouchableOpacity onPress={handleLock} style={{ paddingVertical: 4 }}>
-          <Text style={styles.batteryText} numberOfLines={1}>
-            {batteryText}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
-            <Svg width={24} height={24} viewBox="0 0 24 24">
-              <Path
-                fill={"#6B7280"}
-                d="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"
-              />
-            </Svg>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setUseKnockoffKeyboard(prev => !prev)}>
-            <Text style={styles.clockText}>{clock}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {keyboardVisible && useKnockoffKeyboard && (
-        <Keyboard
-          inputType={inputType}
-          onKeyPress={handleKeyPress}
-        />
-      )}
-
-      <Portal>
-        <Dialog visible={warningExitDialog} onDismiss={() => setWarningExitDialog(false)}>
-          <Dialog.Icon icon="alert" />
-          <Dialog.Title style={{ textAlign: 'center' }}>Exit?</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              You pressed the back button. Are you sure want to exit?
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => {
-                setWarningExitDialog(false);
-                setLastWarningExitDialog(true);
-              }}
-            >
-              Exit
-            </Button>
-            <Button mode='contained' onPress={() => setWarningExitDialog(false)}>Cancel</Button>
-          </Dialog.Actions>
-        </Dialog>
-
-        <Dialog visible={lastWarningExitDialog} onDismiss={() => setLastWarningExitDialog(false)}>
-          <Dialog.Icon icon="alert" />
-          <Dialog.Title style={{ textAlign: 'center' }}>LAST WARNING</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              Are you REALLY sure want to exit?
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <View
-              style={{ flex: 1, flexDirection: "row", justifyContent: "space-between" }}
-            >
-              <Button
-                onPress={() => {
-                  navigation.goBack();
-                  setLastWarningExitDialog(false);
-                }}
-              >
-                Exit
-              </Button>
-              <Button mode='contained' onPress={() => setLastWarningExitDialog(false)}>Cancel</Button>
-            </View>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </SafeAreaView>
-  );
-}
+  
