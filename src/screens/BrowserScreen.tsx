@@ -151,7 +151,6 @@ const BRIDGE_SCRIPT = `
       }
     };
 
-    // Menu mengambang Cut / Copy / Paste / Select All saat tekan lama (long-press)
     var menuEl = null;
     function hideContextMenu() {
       if (menuEl && menuEl.parentNode) {
@@ -280,7 +279,6 @@ const BRIDGE_SCRIPT = `
       menuEl = bar;
     }
 
-    // Deteksi tekan lama (long-press ~450ms)
     var pressTimer = null;
     var startX = 0;
     var startY = 0;
@@ -660,4 +658,8 @@ export default function BrowserScreen() {
         onNavigationStateChange={handleNavChange}
         injectedJavaScriptBeforeContentLoaded={BRIDGE_SCRIPT}
         onMessage={handleMessage}
-  
+      />
+
+      <View style={styles.statusBar}>
+        <TouchableOpacity onPress={handleLock} style={{ paddingVertical: 4 }}>
+     
